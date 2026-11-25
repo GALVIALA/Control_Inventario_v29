@@ -1,0 +1,13 @@
+.DS_Store
+planilla_vacia.xlsx
+outputs/
+Planilla_prueba_completada.xlsx
+*.inspect.ndjson
+__pycache__/
+*.pyc
+node_modules/
+.env
+.env.*
+!.env.example
+*.pem
+*.key

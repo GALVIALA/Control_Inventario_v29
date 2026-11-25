@@ -1,0 +1,24 @@
+{
+  "name": "Control Inventario",
+  "short_name": "Control Inventario",
+  "description": "Conteo de inventario local con importación y exportación XLSX.",
+  "start_url": "./?actualizacion=29",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#063b31",
+  "theme_color": "#063b31",
+  "icons": [
+    {
+      "src": "icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#063b31">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Control Inventario">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob:">
+  <title>Control Inventario</title>
+  <link rel="manifest" href="manifest.webmanifest?v=49">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="stylesheet" href="styles.css?v=49">
+  <style>.camera-frame{aspect-ratio:4/3;cursor:pointer}.camera-frame canvas{position:absolute;inset:0;z-index:1;display:none;width:100%;height:100%;object-fit:cover}.camera-frame.captured canvas{display:block}.camera-frame.captured video{visibility:hidden}.scan-line{z-index:2}</style>
+</head>
+<body>
+  <header class="app-header">
+    <img class="app-avatar" src="icon-180.png" alt="" aria-hidden="true">
+    <div class="app-title">
+      <p class="eyebrow">Control Inventario · V29</p>
+      <h1 id="inventoryName">Inventarios</h1>
+    </div>
+    <button id="demoExitButton" class="demo-exit-button hidden" type="button">Salir de demo</button>
+    <span class="offline-pill" id="networkStatus">Local</span>
+  </header>
+
+  <main>
+    <section id="importView" class="panel import-panel home-panel">
+      <div class="import-mark" aria-hidden="true">XLSX</div>
+      <h2 id="homeTitle">Control de inventarios</h2>
+      <p id="homeIntro">Los libros y conteos permanecen en este dispositivo.</p>
+      <div id="activeInventoryCard" class="active-inventory-card hidden">
+        <span>Inventario activo</span><strong id="activeInventoryName"></strong><small id="activeInventoryProgress"></small>
+      </div>
+      <div id="homePrimaryActions" class="home-primary-actions">
+        <button id="restoreButton" class="primary-button home-action-button" type="button" disabled>Continuar inventario</button>
+        <button id="startNewInventoryButton" class="primary-button home-action-button" type="button">Iniciar nuevo inventario</button>
+        <button id="historyButton" class="primary-button home-action-button" type="button">Consultar inventarios anteriores</button>
+      </div>
+      <a id="emptyTemplateButton" class="secondary-button home-template-button" href="./Planilla_vacía.xlsx" download="Planilla_vacía.xlsx">Exportar planilla vacía</a>
+      <label id="updateFileLabel" class="secondary-button file-button hidden">Actualizar desde Excel<input id="updateFileInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label>
+      <button id="restoreBackupButton" class="text-button hidden" type="button">Restaurar último respaldo del inventario activo</button>
+      <div id="recoveryLookupError" class="recovery-lookup-error hidden" role="alert">
+        <span id="recoveryLookupMessage">No fue posible consultar los inventarios guardados en este dispositivo.</span>
+        <button id="retryRecoveryLookup" type="button">Reintentar consulta</button>
+      </div>
+      <section id="newInventoryPanel" class="new-inventory-panel hidden">
+        <h3>Iniciar nuevo inventario</h3>
+        <p>Esta acción crea un inventario independiente y nunca elimina los anteriores.</p>
+        <label class="field-label">Nombre del inventario<input id="newInventoryName" type="text" maxlength="80" autocomplete="off" placeholder="Ej. Mid Year 2027"></label>
+        <label class="secondary-button file-button">Seleccionar Excel para nuevo inventario<input id="fileInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label>
+        <button id="cancelNewInventory" class="text-button" type="button">Volver</button>
+      </section>
+      <button id="demoButton" class="text-button" type="button">Probar interfaz sin Excel</button>
+      <p class="privacy-note">Modo local. Sin nube, credenciales ni envío automático.</p>
+    </section>
+
+    <section id="historyView" class="hidden history-view">
+      <div class="status-heading"><div><p class="eyebrow">Solo lectura</p><h2>Inventarios anteriores</h2></div><div class="history-heading-actions"><button id="manageHistory" class="text-button" type="button" aria-pressed="false">Administrar</button><button id="closeHistory" class="text-button" type="button">Volver</button></div></div>
+      <input id="historySearch" class="history-search" type="search" placeholder="Buscar por nombre">
+      <div id="historyList" class="history-list"></div>
+      <div id="historyEmpty" class="empty-state hidden"><strong>Sin inventarios cerrados</strong><span>Los inventarios aparecerán aquí después de su cierre definitivo.</span></div>
+    </section>
+
+    <section id="inventoryView" class="hidden">
+      <div id="readonlyBanner" class="readonly-banner hidden"><span><strong>Consulta histórica</strong><small>Este inventario está cerrado y no admite cambios.</small></span><button id="returnToActive" type="button">Volver al activo</button></div>
+      <div class="toolbar">
+        <div class="search-wrap">
+          <label for="searchInput">Buscar o escanear material</label>
+          <div class="search-row">
+            <input id="searchInput" inputmode="search" autocomplete="off" placeholder="Código o descripción">
+            <button id="scanButton" class="icon-button" type="button" aria-label="Escanear código">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="progress-line">
+          <span><strong id="countedTotal">0</strong> filas contadas</span>
+          <span id="saveState">Guardado local</span>
+        </div>
+      </div>
+
+      <button id="seriesIssuesBanner" class="series-issues-banner hidden" type="button">
+        <span><strong id="seriesIssuesBannerTitle">Incidencias de series</strong><small id="seriesIssuesBannerText"></small></span><b>Revisar ›</b>
+      </button>
+
+      <div id="results" class="results"></div>
+      <div id="emptyState" class="empty-state hidden">
+        <strong>Sin coincidencias</strong>
+        <span>El código no pertenece al inventario cargado.</span>
+      </div>
+    </section>
+
+    <section id="locationReviewView" class="hidden">
+      <div class="location-review-toolbar">
+        <label for="locationTrigger">Ubicación SAP</label>
+        <div class="location-combobox">
+          <button id="locationTrigger" class="location-trigger" type="button" aria-controls="locationMenu" aria-expanded="false"><span id="locationTriggerText">Seleccionar ubicación SAP</span><b aria-hidden="true">⌄</b></button>
+          <div id="locationMenu" class="location-menu hidden">
+            <div class="location-menu-search"><span aria-hidden="true">⌕</span><input id="locationSearch" type="search" autocomplete="off" placeholder="Buscar ubicación…" aria-label="Buscar ubicación SAP"></div>
+            <div id="locationSuggestions" class="location-suggestions" role="listbox"></div>
+          </div>
+        </div>
+        <p>Selecciona una ubicación del Excel para revisar sus materiales.</p>
+      </div>
+      <div id="locationProgress" class="location-progress hidden">
+        <div><span id="locationProgressLabel">Ubicación</span><strong id="locationProgressCount">0 de 0 revisados</strong></div>
+        <b id="locationProgressPercent">0%</b>
+        <div class="location-progress-track"><span id="locationProgressBar"></span></div>
+      </div>
+      <div class="location-legend"><span><i class="status-match"></i>Coincide</span><span><i class="status-difference"></i>Diferencia</span><span><i class="status-pending"></i>Pendiente</span></div>
+      <div id="locationResults" class="location-results"></div>
+      <div id="locationEmpty" class="empty-state hidden"><strong>Sin materiales</strong><span>No hay filas asociadas a esta ubicación SAP.</span></div>
+    </section>
+
+    <section id="statusView" class="hidden">
+      <div class="status-heading">
+        <div><p class="eyebrow">Resumen del conteo</p><h2>Estado del inventario</h2></div>
+        <div><span id="statusSavedAt">Guardado local</span><button id="manageInventoriesButton" class="text-button" type="button">Inventarios</button></div>
+      </div>
+      <div class="status-metrics">
+        <article class="status-metric"><span>Total valorizado SAP</span><strong id="statusSapValue">0</strong></article>
+        <article class="status-metric"><span>Total valorizado contado</span><strong id="statusCountedValue">0</strong></article>
+        <article class="status-metric"><span>Diferencia valorizada</span><strong id="statusDifference">0</strong></article>
+        <article class="status-metric"><span>Avance valorizado</span><strong id="statusPercent">0%</strong></article>
+      </div>
+      <article class="status-progress-card">
+        <div><span>Filas revisadas</span><strong id="statusReviewed">0 de 0</strong></div><b id="statusReviewedPercent">0%</b>
+        <div class="status-progress-track"><span id="statusProgressBar"></span></div>
+      </article>
+      <div class="status-breakdown">
+        <article><strong id="statusMatches">0</strong><span>Coinciden</span></article>
+        <article><strong id="statusDifferences">0</strong><span>Diferencias</span></article>
+        <article><strong id="statusPending">0</strong><span>Pendientes</span></article>
+        <button id="statusMissingToggle" type="button"><strong id="statusMissing">0</strong><span>Sin ubicación</span><b>›</b></button>
+        <article><strong id="statusRelocated">0</strong><span>Reubicados</span></article>
+        <article><strong id="statusSeries">0</strong><span>Series</span></article>
+        <button id="statusSeriesUnconfirmedToggle" class="series-warning hidden" type="button"><strong id="statusSeriesUnconfirmed">0</strong><span>Series no confirmadas</span><b>›</b></button>
+        <button id="statusSeriesIssuesToggle" class="series-warning hidden" type="button"><strong id="statusSeriesIssues">0</strong><span>Incidencias de series</span><b>›</b></button>
+        <button id="statusConsistencyToggle" class="series-warning" type="button"><strong id="statusConsistencyCount">0</strong><span>Consistencia inicial</span><b>›</b></button>
+      </div>
+      <section id="statusMissingPanel" class="status-detail-panel hidden">
+        <div class="status-section-head"><div><p class="eyebrow">Requieren revisión</p><h3>Materiales sin ubicación</h3></div><span id="statusMissingPanelCount">0</span></div>
+        <div id="statusMissingRows" class="status-list"></div>
+      </section>
+      <section id="statusSeriesUnconfirmedPanel" class="status-detail-panel hidden">
+        <div class="status-section-head"><div><p class="eyebrow">Requieren revisión</p><h3>Series no confirmadas</h3></div><span id="statusSeriesUnconfirmedPanelCount">0</span></div>
+        <div id="statusSeriesUnconfirmedRows" class="status-list"></div>
+      </section>
+      <section id="statusSeriesIssuesPanel" class="status-detail-panel hidden">
+        <div class="status-section-head"><div><p class="eyebrow">Datos del Excel</p><h3>Incidencias de asociación</h3></div><span id="statusSeriesIssuesPanelCount">0</span></div>
+        <div id="statusSeriesIssuesRows" class="status-list"></div>
+      </section>
+      <section id="statusConsistencyPanel" class="status-detail-panel hidden">
+        <div class="status-section-head"><div><p class="eyebrow">Comprobación inicial</p><h3>Consistencia del Excel</h3></div><span id="statusConsistencyPanelCount">0</span></div>
+        <div id="statusConsistencyContent" class="consistency-content"></div>
+      </section>
+      <section class="status-detail-panel">
+        <div class="status-section-head"><div><p class="eyebrow">Impacto valorizado</p><h3>Mayores diferencias</h3></div></div>
+        <div id="statusTopDifferences" class="status-list"></div>
+      </section>
+    </section>
+
+    <section id="finishView" class="hidden finish-view">
+      <div class="status-heading"><div><p class="eyebrow">Cierre de jornada</p><h2>Exportar inventario</h2></div></div>
+      <section class="finish-card">
+        <div class="summary-grid"><div><span>Filas contadas</span><strong id="finishRows">0</strong></div><div><span>Series verificadas</span><strong id="finishSeries">0</strong></div></div>
+        <div id="finishIssuesWarning" class="finish-issues-warning hidden"><strong id="finishIssuesTitle">Incidencias críticas</strong><span id="finishIssuesText"></span></div>
+        <label class="review-check"><input id="reviewCheck" type="checkbox"> He revisado los registros de la jornada</label>
+        <label id="issuesReviewLabel" class="review-check critical-review hidden"><input id="issuesReviewCheck" type="checkbox"> Entiendo que la copia se exportará con incidencias de series pendientes</label>
+        <button id="shareButton" class="primary-button" type="button" disabled>Preparar y compartir Excel</button>
+        <button id="downloadButton" class="secondary-button" type="button" disabled>Guardar una copia</button>
+        <p id="exportMessage" class="helper">Se genera una copia. El archivo original no se modifica.</p>
+      </section>
+      <section id="definitiveCloseSection" class="finish-card definitive-close">
+        <p class="eyebrow warning-eyebrow">Cierre definitivo del inventario</p><h3>Bloquear para edición</h3>
+        <p>El inventario permanecerá en el historial y solo podrá consultarse.</p>
+        <button id="closeInventoryButton" class="danger-button" type="button">Cerrar inventario</button>
+      </section>
+    </section>
+  </main>
+
+  <nav id="bottomNav" class="bottom-nav hidden" aria-label="Acciones">
+    <button id="showInventory" class="nav-button active" type="button">Inventario</button>
+    <button id="showLocations" class="nav-button" type="button">Ubicaciones</button>
+    <button id="showStatus" class="nav-button" type="button">Estado</button>
+    <button id="finishButton" class="nav-button" type="button">Finalizar</button>
+  </nav>
+
+  <dialog id="commentDialog" class="app-dialog">
+    <form method="dialog">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">Comentario de fila</p>
+          <h2 id="commentTitle">Material</h2>
+        </div>
+        <button class="close-button" value="cancel" aria-label="Cerrar">×</button>
+      </div>
+      <textarea id="commentText" rows="5" autocapitalize="characters" placeholder="ESCRIBE UNA OBSERVACIÓN…"></textarea>
+      <button id="saveComment" class="primary-button" value="default">Guardar comentario</button>
+    </form>
+  </dialog>
+
+  <dialog id="scanDialog" class="app-dialog scanner-dialog">
+    <form method="dialog">
+      <div class="dialog-head">
+        <div><p class="eyebrow">Cámara</p><h2>Escanear código</h2></div>
+        <button id="closeScanner" class="close-button" value="cancel" aria-label="Cerrar">×</button>
+      </div>
+      <div class="camera-frame" role="button" tabindex="0" aria-label="Tomar captura para leer el código"><video id="cameraVideo" playsinline muted></video><canvas id="captureCanvas"></canvas><div class="scan-line"></div></div>
+      <button id="captureButton" class="capture-button" type="button" aria-label="Tomar foto"><span></span></button>
+      <p id="scannerHelp" class="helper scanner-helper">Centra el código en la línea y toca el botón circular.</p>
+    </form>
+  </dialog>
+
+  <dialog id="addCountDialog" class="app-dialog add-count-dialog">
+    <form method="dialog">
+      <div class="dialog-head">
+        <div><p class="eyebrow">Sumar al conteo</p><h2>Agregar otra cantidad</h2></div>
+        <button class="close-button" value="cancel" aria-label="Cerrar">×</button>
+      </div>
+      <p id="addCountMaterial" class="dialog-material">Material</p>
+      <div class="add-equation">
+        <div><span>Actual</span><strong id="addCountCurrent">0</strong></div><b>+</b>
+        <label><span>Agregar</span><input id="addCountValue" type="number" inputmode="decimal" enterkeyhint="done" min="0" step="any" value="" autofocus></label><b>=</b>
+        <div><span>Nuevo total</span><strong id="addCountTotal">0</strong></div>
+      </div>
+      <button id="confirmAddCount" class="primary-button" type="button">Sumar cantidad</button>
+      <button class="secondary-button" value="cancel">Cancelar</button>
+    </form>
+  </dialog>
+
+  <dialog id="missingLocationDialog" class="app-dialog missing-location-dialog">
+    <form method="dialog">
+      <div class="dialog-head">
+        <div><p class="eyebrow warning-eyebrow">Dato pendiente</p><h2>Falta ubicación actual</h2></div>
+        <button class="close-button" value="cancel" aria-label="Cerrar">×</button>
+      </div>
+      <p id="missingLocationMessage" class="missing-location-message"></p>
+      <button id="completeLocationButton" class="primary-button" type="button">Completar ubicación</button>
+      <button id="continueWithoutLocation" class="secondary-button" type="button">Continuar sin ubicación</button>
+    </form>
+  </dialog>
+
+  <dialog id="recoveryDialog" class="app-dialog recovery-dialog">
+    <form method="dialog">
+      <div class="dialog-head">
+        <div><p class="eyebrow warning-eyebrow">Inventario modificado</p><h2>Revisar recuperación</h2></div>
+        <button class="close-button" value="skip" aria-label="Cerrar">×</button>
+      </div>
+      <p class="recovery-message">El archivo no coincide exactamente con el conteo guardado <strong id="recoveryFileName"></strong>. Solo se recuperarán registros cuyos datos SAP y series sean idénticos.</p>
+      <div class="recovery-summary">
+        <div><span>Compatibles</span><strong id="recoveryCompatible">0</strong></div>
+        <div><span>Se omitirán</span><strong id="recoveryOmitted">0</strong></div>
+        <div><span>Ambiguos</span><strong id="recoveryAmbiguous">0</strong></div>
+      </div>
+      <p class="helper">El conteo físico guardado por la aplicación tendrá prioridad. Cuando no exista uno válido, se conservará el conteo válido del Excel nuevo. Las sesiones anteriores no se modificarán.</p>
+      <button class="primary-button" value="recover">Recuperar registros compatibles</button>
+      <button class="secondary-button" value="skip">Continuar sin recuperar</button>
+    </form>
+  </dialog>
+
+  <dialog id="consistencyDialog" class="app-dialog consistency-dialog">
+    <form method="dialog">
+      <div class="dialog-head">
+        <div><p class="eyebrow">Comprobación inicial</p><h2>Consistencia del Excel</h2></div>
+      </div>
+      <p id="consistencyIntro" class="consistency-intro"></p>
+      <div id="consistencyReport" class="consistency-content"></div>
+      <p class="helper">Esta comprobación valida la coherencia entre Inventario y Series. No confirma las existencias físicas ni modifica el Excel.</p>
+      <button id="continueConsistency" class="primary-button" value="continue">Continuar al conteo</button>
+      <button id="replaceConsistencyFile" class="secondary-button" value="replace">Corregir y volver a importar</button>
+      <button id="shareConsistencyButton" class="consistency-share-button hidden" type="button" aria-label="Compartir discrepancias"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 13v6h14v-6"/></svg><span>Compartir discrepancias</span></button>
+    </form>
+  </dialog>
+
+  <dialog id="createInventoryDialog" class="app-dialog"><form method="dialog"><div class="dialog-head"><div><p class="eyebrow">Nuevo inventario</p><h2>Confirmar creación</h2></div><button class="close-button" value="cancel" aria-label="Cerrar">×</button></div><p id="createInventorySummary" class="dialog-message"></p><div id="openInventoryWarning" class="finish-issues-warning hidden"></div><button id="confirmCreateInventory" class="primary-button" value="confirm">Crear y activar inventario</button><button class="secondary-button" value="cancel">Cancelar</button></form></dialog>
+
+  <dialog id="updatePreviewDialog" class="app-dialog update-preview-dialog"><form method="dialog"><div class="dialog-head"><div><p class="eyebrow">Actualizar desde Excel</p><h2>Vista previa</h2></div><button class="close-button" value="cancel" aria-label="Cerrar">×</button></div><div id="updatePreviewSummary" class="summary-grid"></div><div id="updatePreviewDetails" class="update-preview-details"></div><div id="updateWarnings" class="finish-issues-warning hidden"></div><p class="helper">Se creará un respaldo local antes de aplicar todos los cambios en una sola transacción.</p><button id="confirmExcelUpdate" class="primary-button" value="confirm">Aplicar actualización</button><button class="secondary-button" value="cancel">Cancelar</button></form></dialog>
+
+  <dialog id="closeInventoryDialog" class="app-dialog"><form method="dialog"><div class="dialog-head"><div><p class="eyebrow warning-eyebrow">Cierre definitivo</p><h2>Bloquear inventario</h2></div><button class="close-button" value="cancel" aria-label="Cerrar">×</button></div><p class="dialog-message">Primero se generará una copia Excel válida. Después de guardarla, el inventario quedará en modo solo lectura.</p><label class="review-check"><input id="definitiveCloseCheck" type="checkbox"> Entiendo que no podré continuar editando este inventario</label><button id="confirmCloseInventory" class="danger-button" type="button" disabled>Generar respaldo y cerrar</button><button class="secondary-button" value="cancel">Cancelar</button></form></dialog>
+
+  <dialog id="deleteInventoryDialog" class="app-dialog"><form method="dialog"><div class="dialog-head"><div><p class="eyebrow danger-eyebrow">Eliminación definitiva</p><h2>Eliminar inventario</h2></div><button class="close-button" value="cancel" aria-label="Cerrar">×</button></div><p class="dialog-message">Se eliminará únicamente el inventario <strong id="deleteInventoryName"></strong> y sus respaldos locales asociados. Los archivos Excel ya descargados no se modificarán.</p><label class="review-check"><input id="deleteInventoryCheck" type="checkbox"> Confirmo que deseo eliminar este inventario definitivamente</label><button id="confirmDeleteInventory" class="danger-button" type="button" disabled>Eliminar inventario</button><button class="secondary-button" value="cancel">Cancelar</button></form></dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="vendor/jszip.min.js?v=49"></script>
+  <script src="vendor/tesseract/tesseract.min.js?v=49"></script>
+  <script src="inventory-model.js?v=49"></script>
+  <script src="inventory-storage.js?v=49"></script>
+  <script src="inventory-xlsx.js?v=49"></script>
+  <script src="inventory-lifecycle.js?v=49"></script>
+  <script src="app.js?v=49"></script>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=49',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});}</script>
+</body>
+</html>
