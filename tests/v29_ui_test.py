@@ -33,8 +33,14 @@ class V29UiTests(unittest.TestCase):
 
     def test_lifecycle_module_is_cached_and_loaded(self):
         worker = (ROOT / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("inventory-lifecycle.js?v=49", self.index)
-        self.assertIn("inventory-lifecycle.js?v=49", worker)
+        self.assertIn("inventory-lifecycle.js?v=50", self.index)
+        self.assertIn("inventory-lifecycle.js?v=50", worker)
+
+    def test_ios_status_bar_uses_the_header_surface(self):
+        self.assertIn('viewport-fit=cover', self.index)
+        self.assertIn('apple-mobile-web-app-status-bar-style" content="black-translucent', self.index)
+        self.assertIn('padding:calc(9px + env(safe-area-inset-top))', self.styles)
+        self.assertNotIn('body::before', self.styles)
 
     def test_home_downloads_clean_empty_template_directly(self):
         self.assertIn('id="emptyTemplateButton"', self.index)
