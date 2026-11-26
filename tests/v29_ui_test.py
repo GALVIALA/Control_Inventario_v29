@@ -33,12 +33,12 @@ class V29UiTests(unittest.TestCase):
 
     def test_lifecycle_module_is_cached_and_loaded(self):
         worker = (ROOT / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("inventory-lifecycle.js?v=51", self.index)
-        self.assertIn("inventory-lifecycle.js?v=51", worker)
+        self.assertIn("inventory-lifecycle.js?v=52", self.index)
+        self.assertIn("inventory-lifecycle.js?v=52", worker)
 
     def test_ios_status_bar_uses_the_header_surface(self):
         self.assertIn('viewport-fit=cover', self.index)
-        self.assertIn('apple-mobile-web-app-status-bar-style" content="black-translucent', self.index)
+        self.assertNotIn('apple-mobile-web-app-status-bar-style', self.index)
         self.assertIn('padding:calc(9px + env(safe-area-inset-top))', self.styles)
         self.assertIn('html{background:#063b31}', self.styles)
         self.assertRegex(self.styles, r'\.app-header\{[^}]*background:#063b31')
