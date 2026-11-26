@@ -33,8 +33,19 @@ class V29UiTests(unittest.TestCase):
 
     def test_lifecycle_module_is_cached_and_loaded(self):
         worker = (ROOT / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("inventory-lifecycle.js?v=52", self.index)
-        self.assertIn("inventory-lifecycle.js?v=52", worker)
+        self.assertIn("inventory-lifecycle.js?v=53", self.index)
+        self.assertIn("inventory-lifecycle.js?v=53", worker)
+
+    def test_v53_material_card_labels_and_layout(self):
+        for text in ("Mantener cantidad y ubicación", "Mantener ubicación", "Cantidad SAP", "Ubicación SAP"):
+            self.assertIn(text, self.app)
+        for old_text in ("Mantener cantidad y ubicación SAP", "Mantener solo ubicación", "SAP qty", "SAP location"):
+            self.assertNotIn(old_text, self.app)
+        for class_name in ("material-um", "material-status", "material-unit-value", "loc-tab-code", "loc-tab-suffix"):
+            self.assertIn(class_name, self.app)
+        self.assertRegex(self.styles, r'\.loc-tab,\.loc-tab\.batch-tab\{[^}]*flex:0 0 105px[^}]*height:48px')
+        self.assertRegex(self.styles, r'\.loc-tab-suffix\{[^}]*font-size:70%[^}]*font-weight:400')
+        self.assertRegex(self.styles, r'\.material-meta\{[^}]*display:flex[^}]*flex-wrap:wrap')
 
     def test_ios_status_bar_uses_the_header_surface(self):
         self.assertIn('viewport-fit=cover', self.index)
