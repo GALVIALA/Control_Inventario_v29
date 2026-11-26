@@ -19,11 +19,11 @@ class CacheVersionTests(unittest.TestCase):
             index,
         )
         self.assertTrue(versions)
-        self.assertEqual({"50"}, set(versions))
+        self.assertEqual({"51"}, set(versions))
 
     def test_service_worker_uses_new_consistent_cache(self):
         service_worker = (ROOT / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("const CACHE='inventario-offline-v50'", service_worker)
+        self.assertIn("const CACHE='inventario-offline-v51'", service_worker)
         for asset in (
             "styles.css",
             "manifest.webmanifest",
@@ -33,7 +33,7 @@ class CacheVersionTests(unittest.TestCase):
             "inventory-lifecycle.js",
             "app.js",
         ):
-            self.assertIn(f"{asset}?v=50", service_worker)
+            self.assertIn(f"{asset}?v=51", service_worker)
 
     def test_empty_template_is_cached_for_offline_download(self):
         service_worker = (ROOT / "sw.js").read_text(encoding="utf-8")
